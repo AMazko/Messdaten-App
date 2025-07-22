@@ -128,6 +128,9 @@
             <div class="relative h-96"> <!-- Container for responsive canvas -->
                 <canvas id="measurementsChart"></canvas>
             </div>
+            <p id="current-station-display" class="text-sm text-gray-700 mt-2 text-center">
+                Aktuelle Station: -
+            </p>
             <p class="text-sm text-gray-600 mt-2 text-center">
                 **Hinweis für Mobilgeräte:** Zum Zoomen zwei Finger auf dem Diagramm zusammen-/auseinanderziehen (Pinch-Geste). Zum Verschieben einen Finger horizontal ziehen.
             </p>
@@ -166,6 +169,7 @@
         const chartCanvas = document.getElementById('measurementsChart');
         const resetZoomButton = document.getElementById('reset-zoom');
         const undoLastSaveButton = document.getElementById('undo-last-save');
+        const currentStationDisplay = document.getElementById('current-station-display'); // New display element
 
         const ditchSystemFilterRadios = document.querySelectorAll('input[name="ditchSystemFilter"]');
 
@@ -491,6 +495,54 @@
                     }
                 }
             });
+
+            // Add event listeners for live station display after chart is initialized
+            chartCanvas.addEventListener('mousemove', handleChartInteraction);
+            chartCanvas.addEventListener('mouseleave', clearChartInteraction);
+            chartCanvas.addEventListener('touchmove', handleChartInteraction);
+            chartCanvas.addEventListener('touchend', clearChartInteraction);
+            chartCanvas.addEventListener('touchcancel', clearChartInteraction);
+        }
+
+        /**
+         * Handles mousemove and touchmove events on the chart canvas to display current station.
+         */
+        function handleChartInteraction(event) {
+            if (!myChart) return;
+
+            let clientX;
+            // Determine the clientX based on event type (mouse or touch)
+            if (event.touches && event.touches.length > 0) {
+                clientX = event.touches[0].clientX;
+            } else {
+                clientX = event.clientX;
+            }
+
+            // Get the bounding rectangle of the canvas to calculate relative position
+            const rect = chartCanvas.getBoundingClientRect();
+            // Calculate X coordinate relative to the canvas
+            const xCoord = clientX - rect.left;
+
+            // Get the x-scale (station scale) from the chart instance
+            const xScale = myChart.scales.x;
+
+            if (xScale) {
+                // Convert pixel coordinate to data value (station)
+                const stationValue = xScale.getValueForPixel(xCoord);
+                // Update the display element, rounding to 0 decimal places
+                currentStationDisplay.textContent = `Aktuelle Station: ${stationValue.toFixed(0)}`;
+            }
+            // Prevent default browser behavior for touch events (e.g., page scrolling/zooming)
+            if (event.type.startsWith('touch')) {
+                event.preventDefault();
+            }
+        }
+
+        /**
+         * Clears the current station display when the mouse leaves or touch ends.
+         */
+        function clearChartInteraction() {
+            currentStationDisplay.textContent = 'Aktuelle Station: -';
         }
 
         /**
