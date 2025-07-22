@@ -16,7 +16,7 @@
         #measurementsChart {
             max-width: 100%;
             height: 500px; /* Increased height for better visibility of horizontal bars */
-            /* Add touch-action: none to prevent default browser touch gestures on the canvas */
+            /* touch-action: none is still useful to prevent accidental page scrolling/zooming on canvas */
             touch-action: none;
         }
         /* Message box styling */
@@ -42,6 +42,40 @@
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
             z-index: 999;
+        }
+        /* Slider styling for better touch experience */
+        input[type="range"] {
+            -webkit-appearance: none; /* Hides the slider track in Chrome/Safari/Opera */
+            width: 100%; /* Full-width */
+            height: 8px; /* Specify a height for the slider track */
+            background: #d3d3d3; /* Grey background */
+            outline: none; /* Remove outline */
+            opacity: 0.7; /* Set transparency (for hover effect) */
+            -webkit-transition: .2s; /* 0.2 seconds transition on hover */
+            transition: opacity .2s;
+            border-radius: 4px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; /* Hides the slider thumb in Chrome/Safari/Opera */
+            appearance: none;
+            width: 20px; /* Set a specific slider handle width */
+            height: 20px; /* Slider handle height */
+            background: #4CAF50; /* Green background */
+            cursor: pointer; /* Cursor on hover */
+            border-radius: 50%; /* Rounded slider handle */
+            border: 2px solid #fff; /* White border */
+            box-shadow: 0 0 4px rgba(0,0,0,0.2);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px; /* Set a specific slider handle width */
+            height: 20px; /* Slider handle height */
+            background: #4CAF50; /* Green background */
+            cursor: pointer; /* Cursor on hover */
+            border-radius: 50%; /* Rounded slider handle */
+            border: 2px solid #fff; /* White border */
+            box-shadow: 0 0 4px rgba(0,0,0,0.2);
         }
     </style>
     <!-- Chart.js CDN -->
@@ -125,6 +159,26 @@
                     </label>
                 </div>
             </div>
+
+            <!-- New Slider Navigation Controls -->
+            <div class="mb-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <h3 class="text-md font-semibold text-gray-800 mb-2">Stationsbereich auswählen:</h3>
+                <div class="flex flex-col space-y-4">
+                    <div>
+                        <label for="min-station-slider" class="block text-sm font-medium text-gray-700 mb-1">
+                            Von: <span id="min-station-display">18400</span>
+                        </label>
+                        <input type="range" id="min-station-slider" min="18400" max="48400" value="18400">
+                    </div>
+                    <div>
+                        <label for="max-station-slider" class="block text-sm font-medium text-gray-700 mb-1">
+                            Bis: <span id="max-station-display">48400</span>
+                        </label>
+                        <input type="range" id="max-station-slider" min="18400" max="48400" value="48400">
+                    </div>
+                </div>
+            </div>
+
             <div class="relative h-96"> <!-- Container for responsive canvas -->
                 <canvas id="measurementsChart"></canvas>
             </div>
@@ -132,27 +186,11 @@
                 Aktuelle Station: -
             </p>
             <p class="text-sm text-gray-600 mt-2 text-center">
-                **Hinweis für Mobilgeräte:** Zum Zoomen zwei Finger auf dem Diagramm zusammen-/auseinanderziehen (Pinch-Geste). Zum Verschieben einen Finger horizontal ziehen.
+                **Hinweis für Mobilgeräte:** Zum Zoomen zwei Finger auf dem Diagramm zusammen-/auseinanderziehen (Pinch-Geste). Zum Verschieben einen Finger horizontal ziehen. (Diese Gesten sind weiterhin über das Chart.js-Plugin verfügbar, falls bevorzugt)
             </p>
 
-            <!-- New Navigation Buttons -->
-            <div class="flex justify-center space-x-2 mt-4">
-                <button id="zoom-in" class="bg-blue-500 text-white p-2 rounded-md font-semibold hover:bg-blue-600 transition duration-200 shadow-md">
-                    Zoom +
-                </button>
-                <button id="zoom-out" class="bg-blue-500 text-white p-2 rounded-md font-semibold hover:bg-blue-600 transition duration-200 shadow-md">
-                    Zoom -
-                </button>
-                <button id="pan-left" class="bg-blue-500 text-white p-2 rounded-md font-semibold hover:bg-blue-600 transition duration-200 shadow-md">
-                    &larr; Verschieben
-                </button>
-                <button id="pan-right" class="bg-blue-500 text-white p-2 rounded-md font-semibold hover:bg-blue-600 transition duration-200 shadow-md">
-                    Verschieben &rarr;
-                </button>
-            </div>
-
             <button id="reset-zoom" class="mt-4 w-full bg-blue-500 text-white p-2 rounded-md font-semibold hover:bg-blue-600 transition duration-200 shadow-md">
-                Zoom zurücksetzen
+                Zoom zurücksetzen (auf gesamten Bereich)
             </button>
             <button id="undo-last-save" class="mt-2 w-full bg-red-500 text-white p-2 rounded-md font-semibold hover:bg-red-600 transition duration-200 shadow-md">
                 Letzte Messung rückgängig machen
@@ -161,7 +199,7 @@
     </main>
 
     <footer class="mt-8 text-center text-gray-600 text-sm">
-        <p>&copy; 2025 Messdaten App</p>
+        <p>&copy; 2025 Messdaten Doku MAZKO</p>
     </footer>
 
     <script>
@@ -188,12 +226,17 @@
         const undoLastSaveButton = document.getElementById('undo-last-save');
         const currentStationDisplay = document.getElementById('current-station-display'); // New display element
 
-        const zoomInButton = document.getElementById('zoom-in'); // New button
-        const zoomOutButton = document.getElementById('zoom-out'); // New button
-        const panLeftButton = document.getElementById('pan-left'); // New button
-        const panRightButton = document.getElementById('pan-right'); // New button
+        // Slider elements
+        const minStationSlider = document.getElementById('min-station-slider');
+        const maxStationSlider = document.getElementById('max-station-slider');
+        const minStationDisplay = document.getElementById('min-station-display');
+        const maxStationDisplay = document.getElementById('max-station-display');
 
         const ditchSystemFilterRadios = document.querySelectorAll('input[name="ditchSystemFilter"]');
+
+        // Define the absolute min/max station values
+        const ABSOLUTE_MIN_STATION = 18400;
+        const ABSOLUTE_MAX_STATION = 48400;
 
         // Message box functions (retained from previous version)
         function showMessage(message) {
@@ -297,6 +340,13 @@
                     }));
                     // Sort measurements by timestamp for consistent display order
                     measurements.sort((a, b) => a.timestamp - b.timestamp);
+
+                    // Initialize sliders to full range after loading data
+                    minStationSlider.value = ABSOLUTE_MIN_STATION;
+                    maxStationSlider.value = ABSOLUTE_MAX_STATION;
+                    minStationDisplay.textContent = ABSOLUTE_MIN_STATION;
+                    maxStationDisplay.textContent = ABSOLUTE_MAX_STATION;
+
                     updateChart(); // Update chart with new data
                     console.log("Measurements loaded from Google Sheet:", measurements);
                 } else {
@@ -414,13 +464,27 @@
          */
         function updateChart() {
             const selectedDitchSystemFilter = document.querySelector('input[name="ditchSystemFilter"]:checked').value;
+            let minStation = parseInt(minStationSlider.value);
+            let maxStation = parseInt(maxStationSlider.value);
 
-            // Filter measurements based on selected ditch system
+            // Ensure minStation is not greater than maxStation
+            if (minStation > maxStation) {
+                // If min exceeds max, adjust max to be equal to min, or vice versa.
+                // For simplicity, let's adjust max to be equal to min if it's dragged past.
+                // Or you could prevent the slider from moving beyond a certain point.
+                // For now, we'll just ensure the chart scale is valid.
+                maxStation = minStation;
+                maxStationSlider.value = minStation; // Update slider to reflect correction
+                maxStationDisplay.textContent = minStation;
+            }
+
+
+            // Filter measurements based on selected ditch system and station range
             const filteredMeasurements = measurements.filter(m => {
-                if (selectedDitchSystemFilter === 'all') {
-                    return true;
-                }
-                return m.ditchSystem === selectedDitchSystemFilter;
+                const isDitchSystemMatch = (selectedDitchSystemFilter === 'all' || m.ditchSystem === selectedDitchSystemFilter);
+                // Check if any part of the bar (startStation to endStation) falls within the selected range
+                const isStationInRange = (Math.max(minStation, m.startStation) <= Math.min(maxStation, m.endStation));
+                return isDitchSystemMatch && isStationInRange;
             });
 
             const dataset = {
@@ -458,8 +522,8 @@
                                 display: true,
                                 text: 'Stationen'
                             },
-                            min: 18000,
-                            max: 49000
+                            min: minStation, // Set min from slider
+                            max: maxStation  // Set max from slider
                         },
                         y: {
                             type: 'category',
@@ -499,11 +563,12 @@
                         legend: {
                             display: false,
                         },
+                        // Zoom plugin is still enabled, but primary navigation is via sliders
                         zoom: {
                             pan: {
                                 enabled: true,
-                                mode: 'x', // Pan only along the x-axis
-                                threshold: 10 // Minimum pan distance required to start panning
+                                mode: 'x',
+                                threshold: 10
                             },
                             zoom: {
                                 wheel: {
@@ -512,8 +577,8 @@
                                 pinch: {
                                     enabled: true
                                 },
-                                mode: 'x', // Zoom only along the x-axis
-                                overScaleMode: 'x' // Allow zooming beyond data limits on x-axis
+                                mode: 'x',
+                                overScaleMode: 'x'
                             }
                         }
                     }
@@ -521,7 +586,6 @@
             });
 
             // Add event listeners for live station display after chart is initialized
-            // These are for the *live display*, the zoom/pan is handled by the plugin itself
             chartCanvas.addEventListener('mousemove', handleChartInteraction);
             chartCanvas.addEventListener('mouseleave', clearChartInteraction);
             chartCanvas.addEventListener('touchmove', handleChartInteraction);
@@ -586,9 +650,9 @@
             const notes = notesInput.value.trim(); // Get notes value
 
             if (isNaN(startStation) || isNaN(endStation) ||
-                startStation < 18400 || startStation > 48400 ||
-                endStation < 18400 || endStation > 48400) {
-                showMessage('Die Anfangs- und Endstation müssen gültige Zahlen zwischen 18400 und 48400 sein.');
+                startStation < ABSOLUTE_MIN_STATION || startStation > ABSOLUTE_MAX_STATION ||
+                endStation < ABSOLUTE_MIN_STATION || endStation > ABSOLUTE_MAX_STATION) {
+                showMessage(`Die Anfangs- und Endstation müssen gültige Zahlen zwischen ${ABSOLUTE_MIN_STATION} und ${ABSOLUTE_MAX_STATION} sein.`);
                 return;
             }
             if (startStation >= endStation) {
@@ -621,9 +685,12 @@
          * Event listener for the reset zoom button.
          */
         resetZoomButton.addEventListener('click', () => {
-            if (myChart) {
-                myChart.resetZoom();
-            }
+            // Reset sliders to full range
+            minStationSlider.value = ABSOLUTE_MIN_STATION;
+            maxStationSlider.value = ABSOLUTE_MAX_STATION;
+            minStationDisplay.textContent = ABSOLUTE_MIN_STATION;
+            maxStationDisplay.textContent = ABSOLUTE_MAX_STATION;
+            updateChart(); // Update chart with the new full range
         });
 
         // Event listener for undo button
@@ -634,18 +701,25 @@
             radio.addEventListener('change', updateChart);
         });
 
-        // New event listeners for navigation buttons
-        zoomInButton.addEventListener('click', () => {
-            if (myChart) myChart.zoom(1.1); // Zoom in by 10%
+        // Event listeners for sliders
+        minStationSlider.addEventListener('input', () => {
+            minStationDisplay.textContent = minStationSlider.value;
+            // Ensure min slider doesn't go past max slider
+            if (parseInt(minStationSlider.value) > parseInt(maxStationSlider.value)) {
+                maxStationSlider.value = minStationSlider.value;
+                maxStationDisplay.textContent = minStationSlider.value;
+            }
+            updateChart();
         });
-        zoomOutButton.addEventListener('click', () => {
-            if (myChart) myChart.zoom(0.9); // Zoom out by 10%
-        });
-        panLeftButton.addEventListener('click', () => {
-            if (myChart) myChart.pan({ x: -50 }, 'x'); // Pan left by 50 pixels
-        });
-        panRightButton.addEventListener('click', () => {
-            if (myChart) myChart.pan({ x: 50 }, 'x'); // Pan right by 50 pixels
+
+        maxStationSlider.addEventListener('input', () => {
+            maxStationDisplay.textContent = maxStationSlider.value;
+            // Ensure max slider doesn't go below min slider
+            if (parseInt(maxStationSlider.value) < parseInt(minStationSlider.value)) {
+                minStationSlider.value = maxStationSlider.value;
+                minStationDisplay.textContent = maxStationSlider.value;
+            }
+            updateChart();
         });
 
 
