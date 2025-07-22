@@ -134,6 +134,23 @@
             <p class="text-sm text-gray-600 mt-2 text-center">
                 **Hinweis für Mobilgeräte:** Zum Zoomen zwei Finger auf dem Diagramm zusammen-/auseinanderziehen (Pinch-Geste). Zum Verschieben einen Finger horizontal ziehen.
             </p>
+
+            <!-- New Navigation Buttons -->
+            <div class="flex justify-center space-x-2 mt-4">
+                <button id="zoom-in" class="bg-blue-500 text-white p-2 rounded-md font-semibold hover:bg-blue-600 transition duration-200 shadow-md">
+                    Zoom +
+                </button>
+                <button id="zoom-out" class="bg-blue-500 text-white p-2 rounded-md font-semibold hover:bg-blue-600 transition duration-200 shadow-md">
+                    Zoom -
+                </button>
+                <button id="pan-left" class="bg-blue-500 text-white p-2 rounded-md font-semibold hover:bg-blue-600 transition duration-200 shadow-md">
+                    &larr; Verschieben
+                </button>
+                <button id="pan-right" class="bg-blue-500 text-white p-2 rounded-md font-semibold hover:bg-blue-600 transition duration-200 shadow-md">
+                    Verschieben &rarr;
+                </button>
+            </div>
+
             <button id="reset-zoom" class="mt-4 w-full bg-blue-500 text-white p-2 rounded-md font-semibold hover:bg-blue-600 transition duration-200 shadow-md">
                 Zoom zurücksetzen
             </button>
@@ -170,6 +187,11 @@
         const resetZoomButton = document.getElementById('reset-zoom');
         const undoLastSaveButton = document.getElementById('undo-last-save');
         const currentStationDisplay = document.getElementById('current-station-display'); // New display element
+
+        const zoomInButton = document.getElementById('zoom-in'); // New button
+        const zoomOutButton = document.getElementById('zoom-out'); // New button
+        const panLeftButton = document.getElementById('pan-left'); // New button
+        const panRightButton = document.getElementById('pan-right'); // New button
 
         const ditchSystemFilterRadios = document.querySelectorAll('input[name="ditchSystemFilter"]');
 
@@ -480,7 +502,8 @@
                         zoom: {
                             pan: {
                                 enabled: true,
-                                mode: 'x',
+                                mode: 'x', // Pan only along the x-axis
+                                threshold: 10 // Minimum pan distance required to start panning
                             },
                             zoom: {
                                 wheel: {
@@ -489,7 +512,8 @@
                                 pinch: {
                                     enabled: true
                                 },
-                                mode: 'x',
+                                mode: 'x', // Zoom only along the x-axis
+                                overScaleMode: 'x' // Allow zooming beyond data limits on x-axis
                             }
                         }
                     }
@@ -497,6 +521,7 @@
             });
 
             // Add event listeners for live station display after chart is initialized
+            // These are for the *live display*, the zoom/pan is handled by the plugin itself
             chartCanvas.addEventListener('mousemove', handleChartInteraction);
             chartCanvas.addEventListener('mouseleave', clearChartInteraction);
             chartCanvas.addEventListener('touchmove', handleChartInteraction);
@@ -533,6 +558,7 @@
                 currentStationDisplay.textContent = `Aktuelle Station: ${stationValue.toFixed(0)}`;
             }
             // Prevent default browser behavior for touch events (e.g., page scrolling/zooming)
+            // This is crucial for the plugin to work correctly on touch devices.
             if (event.type.startsWith('touch')) {
                 event.preventDefault();
             }
@@ -607,6 +633,21 @@
         ditchSystemFilterRadios.forEach(radio => {
             radio.addEventListener('change', updateChart);
         });
+
+        // New event listeners for navigation buttons
+        zoomInButton.addEventListener('click', () => {
+            if (myChart) myChart.zoom(1.1); // Zoom in by 10%
+        });
+        zoomOutButton.addEventListener('click', () => {
+            if (myChart) myChart.zoom(0.9); // Zoom out by 10%
+        });
+        panLeftButton.addEventListener('click', () => {
+            if (myChart) myChart.pan({ x: -50 }, 'x'); // Pan left by 50 pixels
+        });
+        panRightButton.addEventListener('click', () => {
+            if (myChart) myChart.pan({ x: 50 }, 'x'); // Pan right by 50 pixels
+        });
+
 
         // Initial load of measurements when the DOM is fully loaded
         document.addEventListener('DOMContentLoaded', () => {
