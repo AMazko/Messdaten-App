@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messdaten-Erfassung</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for Inter font and general layout */
+        body {
+            font-family: 'Inter', sans-serif;
+            @apply bg-gray-100 text-gray-800;
+        }
+        /* Ensure the canvas is responsive */
+        #measurementsChart {
+            max-width: 100%;
+            height: 500px; /* Increased height for better visibility of horizontal bars */
+        }
+        /* Message box styling */
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            text-align: center;
+            border: 1px solid #ddd;
+            max-width: 80%;
+        }
+        .message-box-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+    </style>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js Zoom Plugin CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+</head>
+<body class="p-4 flex flex-col items-center min-h-screen">
+    <header class="w-full max-w-lg bg-blue-600 text-white p-4 rounded-lg shadow-md mb-6 text-center">
+        <h1 class="text-2xl font-bold">Messdaten Erfassen</h1>
+    </header>
+
+    <main class="w-full max-w-lg bg-white p-6 rounded-lg shadow-lg">
+        <section id="data-entry" class="mb-8">
+            <h2 class="text-xl font-semibold text-blue-700 mb-4">Neue Messung eintragen</h2>
+            <form id="measurement-form" class="space-y-4">
+                <div>
+                    <label for="ditch-system" class="block text-sm font-medium text-gray-700 mb-1">Grabensystem:</label>
+                    <select id="ditch-system" class="w-full p-2 border border-gray-300 rounded-md focus:border-blue-500" required>
+                        <option value="V5">V5</option>
+                        <option value="V5a">V5a</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="measurement-point" class="block text-sm font-medium text-gray-700 mb-1">Gemessen wurde:</label>
+                    <select id="measurement-point" class="w-full p-2 border border-gray-300 rounded-md focus:border-blue-500" required>
+                        <option value="OK Gelände">OK Gelände</option>
+                        <option value="Schwarzboden">Schwarzboden</option>
+                        <option value="OK Leitungszone">OK Leitungszone</option>
+                        <option value="OK LWL">OK LWL</option>
+                        <option value="OK Rohr">OK Rohr</option>
+                        <option value="Grabensohle">Grabensohle</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="measurement-date" class="block text-sm font-medium text-gray-700 mb-1">Datum:</label>
+                    <input type="date" id="measurement-date" class="w-full p-2 border border-gray-300 rounded-md focus:border-blue-500" required>
+                </div>
+
+                <div>
+                    <label for="start-station" class="block text-sm font-medium text-gray-700 mb-1">Anfangsstation:</label>
+                    <input type="number" id="start-station" min="18400" max="48400" class="w-full p-2 border border-gray-300 rounded-md focus:border-blue-500" required>
+                </div>
+
+                <div>
+                    <label for="end-station" class="block text-sm font-medium text-gray-700 mb-1">Endstation:</label>
+                    <input type="number" id="end-station" min="18400" max="48400" class="w-full p-2 border border-gray-300 rounded-md focus:border-blue-500" required>
+                </div>
+
+                <div>
+                    <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">Notizen:</label>
+                    <textarea id="notes" rows="3" class="w-full p-2 border border-gray-300 rounded-md focus:border-blue-500"></textarea>
+                </div>
+
+                <button type="submit" class="w-full bg-green-500 text-white p-3 rounded-md font-semibold hover:bg-green-600 transition duration-200 shadow-md">
+                    Messung Speichern
+                </button>
+            </form>
+        </section>
+
+        <hr class="my-8 border-gray-300">
+
+        <section id="chart-display">
+            <h2 class="text-xl font-semibold text-blue-700 mb-4">Messdaten Diagramm</h2>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Diagrammfilter Grabensystem:</label>
+                <div class="flex space-x-4">
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="ditchSystemFilter" value="all" checked class="form-radio text-blue-600">
+                        <span class="ml-2 text-gray-700">Alle</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="ditchSystemFilter" value="V5" class="form-radio text-blue-600">
+                        <span class="ml-2 text-gray-700">V5</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="ditchSystemFilter" value="V5a" class="form-radio text-blue-600">
+                        <span class="ml-2 text-gray-700">V5a</span>
+                    </label>
+                </div>
+            </div>
+            <div class="relative h-96"> <!-- Container for responsive canvas -->
+                <canvas id="measurementsChart"></canvas>
+            </div>
+            <button id="reset-zoom" class="mt-4 w-full bg-blue-500 text-white p-2 rounded-md font-semibold hover:bg-blue-600 transition duration-200 shadow-md">
+                Zoom zurücksetzen
+            </button>
+            <button id="undo-last-save" class="mt-2 w-full bg-red-500 text-white p-2 rounded-md font-semibold hover:bg-red-600 transition duration-200 shadow-md">
+                Letzte Messung rückgängig machen
+            </button>
+        </section>
+    </main>
+
+    <footer class="mt-8 text-center text-gray-600 text-sm">
+        <p>&copy; 2025 Messdaten App MAZKO</p>
+    </footer>
+
+    <script>
+        // !! WICHTIG !!
+        // ERSETZEN SIE DIESEN PLATZHALTER MIT DER URL IHRER BEREITGESTELLTEN GOOGLE APPS SCRIPT WEB APP
+        const GOOGLE_APPS_SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzfT-xSNGv1d9Bm3E1Mr-ueLyNA-1Uv4Ys1r6CtxethA2wz1ues0CoMrx4GEUARD_4e/exec';
+        // Beispiel: 'https://script.google.com/macros/s/AKfyc.../exec'
+
+        // Array to store all measurements
+        let measurements = [];
+        // Variable to hold the Chart.js instance
+        let myChart;
+
+        // Get references to HTML elements
+        const ditchSystemSelect = document.getElementById('ditch-system');
+        const measurementPointSelect = document.getElementById('measurement-point');
+        const measurementDateInput = document.getElementById('measurement-date');
+        const startStationInput = document.getElementById('start-station');
+        const endStationInput = document.getElementById('end-station');
+        const notesInput = document.getElementById('notes'); // New notes input
+        const measurementForm = document.getElementById('measurement-form');
+        const chartCanvas = document.getElementById('measurementsChart');
+        const resetZoomButton = document.getElementById('reset-zoom');
+        const undoLastSaveButton = document.getElementById('undo-last-save');
+
+        const ditchSystemFilterRadios = document.querySelectorAll('input[name="ditchSystemFilter"]');
+
+        // Message box functions (retained from previous version)
+        function showMessage(message) {
+            const existingMessageBox = document.querySelector('.message-box');
+            if (existingMessageBox) {
+                existingMessageBox.remove();
+                document.querySelector('.message-box-backdrop')?.remove();
+            }
+
+            const messageBox = document.createElement('div');
+            messageBox.className = 'message-box';
+            messageBox.innerHTML = `
+                <p class="text-lg font-semibold mb-4">${message}</p>
+                <button class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600" onclick="this.parentNode.remove(); document.querySelector('.message-box-backdrop')?.remove();">OK</button>
+            `;
+            const backdrop = document.createElement('div');
+            backdrop.className = 'message-box-backdrop';
+            document.body.appendChild(backdrop);
+            document.body.appendChild(messageBox);
+        }
+
+        function showConfirm(message) {
+            return new Promise((resolve) => {
+                const existingMessageBox = document.querySelector('.message-box');
+                if (existingMessageBox) {
+                    existingMessageBox.remove();
+                    document.querySelector('.message-box-backdrop')?.remove();
+                }
+
+                const messageBox = document.createElement('div');
+                messageBox.className = 'message-box';
+                messageBox.innerHTML = `
+                    <p class="text-lg font-semibold mb-4">${message}</p>
+                    <button class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 mr-2" id="confirm-yes">Ja</button>
+                    <button class="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400" id="confirm-no">Nein</button>
+                `;
+                const backdrop = document.createElement('div');
+                backdrop.className = 'message-box-backdrop';
+                document.body.appendChild(backdrop);
+                document.body.appendChild(messageBox);
+
+                document.getElementById('confirm-yes').onclick = () => {
+                    messageBox.remove();
+                    backdrop.remove();
+                    resolve(true);
+                };
+                document.getElementById('confirm-no').onclick = () => {
+                    messageBox.remove();
+                    backdrop.remove();
+                    resolve(false);
+                };
+            });
+        }
+
+        // Define colors for each measurement point for consistent styling
+        const pointColors = {
+            "OK Gelände": "rgba(255, 99, 132, 0.8)",    // Reddish
+            "Schwarzboden": "rgba(54, 162, 235, 0.8)",  // Blueish
+            "OK Leitungszone": "rgba(255, 206, 86, 0.8)", // Yellowish
+            "OK LWL": "rgba(255, 165, 0, 0.8)",         // Orange for new LWL option
+            "OK Rohr": "rgba(75, 192, 192, 0.8)",      // Greenish-blue
+            "Grabensohle": "rgba(153, 102, 255, 0.8)"   // Purplish
+        };
+
+        // Define the desired order for the vertical axis categories
+        const measurementPointOrder = [
+            "Grabensohle",
+            "OK Rohr",
+            "OK LWL",
+            "OK Leitungszone",
+            "Schwarzboden",
+            "OK Gelände"
+        ];
+
+        /**
+         * Loads measurements from Google Sheet via Apps Script.
+         */
+        async function loadMeasurements() {
+            if (GOOGLE_APPS_SCRIPT_WEB_APP_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
+                showMessage('Fehler: Bitte ersetzen Sie "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE" in der index.html mit der URL Ihrer bereitgestellten Google Apps Script Web App.');
+                return;
+            }
+
+            try {
+                const response = await fetch(GOOGLE_APPS_SCRIPT_WEB_APP_URL + '?action=getMeasurements');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                if (data.status === 'success') {
+                    // Assuming data.measurements is an array of objects
+                    measurements = data.measurements.map(m => ({
+                        // Ensure correct data types and structure from sheet
+                        date: m.Datum,
+                        ditchSystem: m.Grabensystem,
+                        measurementPoint: m.Gemessen,
+                        startStation: parseInt(m.Anfangsstation),
+                        endStation: parseInt(m.Endstation),
+                        notes: m.Notizen || '', // Ensure notes exist, default to empty string
+                        timestamp: new Date(m.Zeitstempel) // Convert timestamp string to Date object
+                    }));
+                    // Sort measurements by timestamp for consistent display order
+                    measurements.sort((a, b) => a.timestamp - b.timestamp);
+                    updateChart(); // Update chart with new data
+                    console.log("Measurements loaded from Google Sheet:", measurements);
+                } else {
+                    showMessage('Fehler beim Laden der Messungen: ' + data.message);
+                }
+            } catch (error) {
+                console.error("Error fetching measurements from Google Sheet:", error);
+                showMessage('Fehler beim Laden der Messungen: ' + error.message);
+            }
+        }
+
+        /**
+         * Saves a new measurement to Google Sheet via Apps Script.
+         */
+        async function saveMeasurementToSheets(newMeasurement, password) {
+            if (GOOGLE_APPS_SCRIPT_WEB_APP_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
+                showMessage('Fehler: Bitte ersetzen Sie "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE" in der index.html mit der URL Ihrer bereitgestellten Google Apps Script Web App.');
+                return;
+            }
+
+            try {
+                const response = await fetch(GOOGLE_APPS_SCRIPT_WEB_APP_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        action: 'addMeasurement',
+                        password: password,
+                        data: JSON.stringify(newMeasurement) // Send measurement data as JSON string
+                    }).toString()
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const result = await response.json();
+                if (result.status === 'success') {
+                    showMessage('Messung erfolgreich gespeichert!');
+                    // Reload all data to ensure consistency after saving
+                    loadMeasurements();
+                } else {
+                    showMessage('Fehler beim Speichern der Messung: ' + result.message);
+                }
+            } catch (error) {
+                console.error("Error saving measurement to Google Sheet:", error);
+                showMessage('Fehler beim Speichern der Messung: ' + error.message);
+            }
+        }
+
+        /**
+         * Deletes the last saved measurement from Google Sheet via Apps Script.
+         */
+        async function undoLastSave() {
+            if (GOOGLE_APPS_SCRIPT_WEB_APP_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
+                showMessage('Fehler: Bitte ersetzen Sie "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE" in der index.html mit der URL Ihrer bereitgestellten Google Apps Script Web App.');
+                return;
+            }
+
+            if (measurements.length === 0) {
+                showMessage('Es gibt keine Messungen zum Rückgängigmachen.');
+                return;
+            }
+
+            // Get the last measurement (most recent due to sorting)
+            const lastMeasurement = measurements[measurements.length - 1];
+
+            // Custom confirmation dialog
+            const confirmDelete = await showConfirm(
+                'Möchten Sie die letzte Messung wirklich rückgängig machen?\n\n' +
+                `Datum: ${lastMeasurement.date}\n` +
+                `Station: ${lastMeasurement.startStation}-${lastMeasurement.endStation}\n` +
+                `Messpunkt: ${lastMeasurement.measurementPoint}`
+            );
+
+            if (confirmDelete) {
+                const password = prompt("Bitte geben Sie das Passwort zum Löschen ein:");
+                if (!password) {
+                    showMessage("Löschen abgebrochen.");
+                    return;
+                }
+
+                try {
+                    const response = await fetch(GOOGLE_APPS_SCRIPT_WEB_APP_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: new URLSearchParams({
+                            action: 'deleteLastMeasurement',
+                            password: password
+                        }).toString()
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        showMessage('Letzte Messung erfolgreich rückgängig gemacht.');
+                        loadMeasurements(); // Reload all data to reflect deletion
+                    } else {
+                        showMessage('Fehler beim Rückgängigmachen der Messung: ' + result.message);
+                    }
+                } catch (error) {
+                    console.error("Error deleting last measurement:", error);
+                    showMessage('Fehler beim Rückgängigmachen der Messung: ' + error.message);
+                }
+            }
+        }
+
+        /**
+         * Updates or initializes the Chart.js diagram with current measurement data.
+         */
+        function updateChart() {
+            const selectedDitchSystemFilter = document.querySelector('input[name="ditchSystemFilter"]:checked').value;
+
+            // Filter measurements based on selected ditch system
+            const filteredMeasurements = measurements.filter(m => {
+                if (selectedDitchSystemFilter === 'all') {
+                    return true;
+                }
+                return m.ditchSystem === selectedDitchSystemFilter;
+            });
+
+            const dataset = {
+                label: 'Messungen',
+                data: filteredMeasurements.map(m => ({
+                    x: [m.startStation, m.endStation],
+                    y: m.measurementPoint,
+                    measurement: m
+                })),
+                backgroundColor: filteredMeasurements.map(m => pointColors[m.measurementPoint]),
+                borderColor: filteredMeasurements.map(m => pointColors[m.measurementPoint].replace('0.8', '1')),
+                borderWidth: 1,
+                barPercentage: 0.8,
+                categoryPercentage: 0.8,
+            };
+
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            myChart = new Chart(chartCanvas, {
+                type: 'bar',
+                data: {
+                    datasets: [dataset]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: 'Stationen'
+                            },
+                            min: 18000,
+                            max: 49000
+                        },
+                        y: {
+                            type: 'category',
+                            labels: measurementPointOrder,
+                            title: {
+                                display: true,
+                                text: 'Gemessen wurde'
+                            },
+                            reverse: false
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    const item = tooltipItems[0];
+                                    if (item && item.raw && item.raw.measurement) {
+                                        const m = item.raw.measurement;
+                                        return `Datum: ${m.date}`;
+                                    }
+                                    return '';
+                                },
+                                label: function(tooltipItem) {
+                                    if (tooltipItem && tooltipItem.raw && tooltipItem.raw.measurement) {
+                                        const m = tooltipItem.raw.measurement;
+                                        return [
+                                            `Grabensystem: ${m.ditchSystem}`,
+                                            `Messpunkt: ${m.measurementPoint}`,
+                                            `Station: ${m.startStation} - ${m.endStation}`,
+                                            `Notizen: ${m.notes || 'Keine'}` // Display notes
+                                        ];
+                                    }
+                                    return '';
+                                }
+                            }
+                        },
+                        legend: {
+                            display: false,
+                        },
+                        zoom: {
+                            pan: {
+                                enabled: true,
+                                mode: 'x',
+                            },
+                            zoom: {
+                                wheel: {
+                                    enabled: true,
+                                },
+                                pinch: {
+                                    enabled: true
+                                },
+                                mode: 'x',
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * Event listener for form submission.
+         * Validates input and adds new measurement.
+         */
+        measurementForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const ditchSystem = ditchSystemSelect.value;
+            const measurementPoint = measurementPointSelect.value;
+            const measurementDate = measurementDateInput.value;
+            const startStation = parseInt(startStationInput.value);
+            const endStation = parseInt(endStationInput.value);
+            const notes = notesInput.value.trim(); // Get notes value
+
+            if (isNaN(startStation) || isNaN(endStation) ||
+                startStation < 18400 || startStation > 48400 ||
+                endStation < 18400 || endStation > 48400) {
+                showMessage('Die Anfangs- und Endstation müssen gültige Zahlen zwischen 18400 und 48400 sein.');
+                return;
+            }
+            if (startStation >= endStation) {
+                showMessage('Die Endstation muss größer sein als die Anfangsstation.');
+                return;
+            }
+
+            const password = prompt("Bitte geben Sie das Passwort zum Speichern ein:");
+            if (!password) {
+                showMessage("Speichern abgebrochen.");
+                return;
+            }
+
+            const newMeasurement = {
+                Datum: measurementDate,
+                Grabensystem: ditchSystem,
+                Gemessen: measurementPoint,
+                Anfangsstation: startStation,
+                Endstation: endStation,
+                Notizen: notes, // Add notes to the data
+                Zeitstempel: new Date().toISOString() // Add ISO timestamp for sorting in sheet
+            };
+
+            await saveMeasurementToSheets(newMeasurement, password);
+
+            measurementForm.reset();
+        });
+
+        /**
+         * Event listener for the reset zoom button.
+         */
+        resetZoomButton.addEventListener('click', () => {
+            if (myChart) {
+                myChart.resetZoom();
+            }
+        });
+
+        // Event listener for undo button
+        undoLastSaveButton.addEventListener('click', undoLastSave);
+
+        // Event listeners for ditch system filter radios
+        ditchSystemFilterRadios.forEach(radio => {
+            radio.addEventListener('change', updateChart);
+        });
+
+        // Initial load of measurements when the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMeasurements();
+        });
+    </script>
+</body>
+</html>
