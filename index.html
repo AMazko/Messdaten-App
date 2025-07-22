@@ -16,6 +16,8 @@
         #measurementsChart {
             max-width: 100%;
             height: 500px; /* Increased height for better visibility of horizontal bars */
+            /* Add touch-action: none to prevent default browser touch gestures on the canvas */
+            touch-action: none;
         }
         /* Message box styling */
         .message-box {
@@ -127,7 +129,7 @@
                 <canvas id="measurementsChart"></canvas>
             </div>
             <p class="text-sm text-gray-600 mt-2 text-center">
-                Auf Mobilgeräten: Zum Zoomen zwei Finger zusammen/auseinanderziehen (Pinch-Geste). Zum Verschieben horizontal ziehen.
+                **Hinweis für Mobilgeräte:** Zum Zoomen zwei Finger auf dem Diagramm zusammen-/auseinanderziehen (Pinch-Geste). Zum Verschieben einen Finger horizontal ziehen.
             </p>
             <button id="reset-zoom" class="mt-4 w-full bg-blue-500 text-white p-2 rounded-md font-semibold hover:bg-blue-600 transition duration-200 shadow-md">
                 Zoom zurücksetzen
@@ -274,7 +276,8 @@
                 } else {
                     showMessage('Fehler beim Laden der Messungen: ' + data.message);
                 }
-            } catch (error) {
+            }
+            catch (error) {
                 console.error("Error fetching measurements from Google Sheet:", error);
                 showMessage('Fehler beim Laden der Messungen: ' + error.message);
             }
